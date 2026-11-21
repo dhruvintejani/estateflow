@@ -1,0 +1,23 @@
+export const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(Number(n)||0);
+export const stages=['New','Contacted','Qualified','Site visit','Negotiation','Booked','Lost'];
+export const sources=['Instagram','Facebook','WhatsApp','Website','Email','Walk-in','Referral'];
+const names=['Aarav Shah','Priya Mehta','Karan Patel','Neha Desai','Rohan Joshi','Ananya Singh','Vikram Rao','Isha Shah','Dev Patel','Meera Kapoor','Aditya Mehta','Riya Jain','Nikhil Verma','Sana Khan','Harsh Trivedi','Pooja Shah'];
+export const staff=names.map((name,i)=>({id:'S'+(i+1),name,email: name.toLowerCase().replace(' ','.')+'@example.com',phone:'',department:i<10?'Sales':i<13?'Customer relations':'Operations',status:i===12?'Inactive':'Active'}));
+export const properties=[
+{id:'P1',name:'The Azure Residences',location:'Vesu, Surat',type:'Apartment',configuration:'3 BHK',price:7800000,units:24,available:14,area:1850,status:'Available'},
+{id:'P2',name:'Aranya Heights',location:'Pal, Surat',type:'Apartment',configuration:'2 BHK',price:5400000,units:32,available:19,area:1260,status:'Available'},
+{id:'P3',name:'The Courtyard Villas',location:'Dumas, Surat',type:'Villa',configuration:'4 BHK',price:18500000,units:12,available:5,area:3200,status:'Available'},
+{id:'P4',name:'Westgate Business Park',location:'Adajan, Surat',type:'Commercial',configuration:'Office',price:9500000,units:20,available:11,area:1450,status:'Available'},
+{id:'P5',name:'Riverstone Greens',location:'Jahangirpura, Surat',type:'Plot',configuration:'Residential plot',price:4200000,units:30,available:0,area:1500,status:'Sold out'},
+{id:'P6',name:'Seventy Seven',location:'City Light, Surat',type:'Apartment',configuration:'4 BHK',price:13500000,units:18,available:8,area:2650,status:'Available'}];
+const buyers=['Rahul Patel','Sneha Shah','Amit Desai','Nisha Mehta','Jay Vora','Kavya Jain','Manav Shah','Dhara Patel','Raj Malhotra','Krishna Rao','Tanvi Joshi','Kunal Bhatt','Maya Sharma','Vivek Soni','Ritika Shah','Anil Kapoor','Pallavi Das','Mohit Jain','Sahil Patel','Diya Shah','Ravi Mehta','Jhanvi Shah','Sanjay Rao','Aditi Patel'];
+export const today=()=>new Date().toLocaleDateString('en-CA');
+export const dateOffset=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+export const leads=buyers.map((name,i)=>({id:'L'+(1001+i),name,phone:'',email:name.toLowerCase().replace(' ','.')+'@example.com',source:sources[i%7],stage:stages[[0,0,1,2,3,4,5,1,2,3,0,4,5,6,1,2,0,3,4,1,2,0,5,1][i]],property:properties[i%6].id,budget:properties[i%6].price,assigned:staff[i%10].id,date:dateOffset(-Math.floor(i/3)),notes:i%3===0?'Interested in a property visit.':'Follow up on preferred location.'}));
+export const conversations=leads.slice(0,7).map((l,i)=>({id:'C'+i,lead:l.id,name:l.name,source:sources[i%5],unread:i<3,messages:[{from:'customer',text:['Hi, is a 3 BHK available in Vesu? My budget is around 80 lakh.','Hello! Could you share the floor plan and pricing?','I would like to arrange a site visit this weekend.','Can you send your current property brochure?','Please share payment plan details.','Is there any availability on higher floors?','I am looking for a commercial office.'][i],time:'10:24 AM'},...(i>2?[{from:'staff',text:'Thank you for your enquiry! We will help you with the details.',time:'10:30 AM'}]:[])]}));
+export const visits=leads.slice(2,7).map((l,i)=>({id:'V'+i,lead:l.id,property:l.property,assigned:l.assigned,date:dateOffset(i-1),time:['10:30','11:00','14:00','15:30','17:00'][i],status:i===0?'Completed':'Scheduled',notes:''}));
+export const quotes=leads.slice(3,8).map((l,i)=>({id:'Q'+(100+i),lead:l.id,property:l.property,amount:l.budget,discount:i===0?100000:0,date:dateOffset(-i),status:['Draft','Sent','Accepted','Sent','Draft'][i],notes:'Subject to final availability.'}));
+export const bookings=leads.filter(l=>l.stage==='Booked').map((l,i)=>({id:'B'+(101+i),lead:l.id,property:l.property,amount:l.budget,paid:Math.round(l.budget*.1),date:dateOffset(-i*2),status:'Confirmed',notes:''}));
+export const followups=leads.slice(0,6).map((l,i)=>({id:'F'+i,lead:l.id,assigned:l.assigned,date:dateOffset(i%3),time:'11:00',type:['Call','Message','Meeting'][i%3],status:'Pending',notes:'Discuss requirements and next steps.'}));
+export const initial={staff,properties,leads,conversations,visits,quotes,bookings,followups,documents:[],integrations:{},settings:{company:'EstateFlow Realty',email:'hello@example.com',phone:'',currency:'INR'}};
+export const uid=prefix=>prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
