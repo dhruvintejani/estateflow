@@ -1,4 +1,4 @@
-import React,{useState,useEffect,useMemo} from 'react';
+import React,{useState,useEffect,useLayoutEffect,useMemo} from 'react';
 import {createRoot} from 'react-dom/client';
 import {LayoutDashboard,Inbox,Users,Building2,Kanban,CalendarDays,FileText,Wallet,ChartNoAxesCombined,Settings,MessageCircle,Menu,X,Search,Plus,ChevronRight,ChevronDown,ArrowUpRight,Bell,Send,Download,Trash2,Pencil,Check,Plug,Clock,MapPin,MoreHorizontal,SlidersHorizontal,UserRound,PanelLeftClose,FolderOpen,LogOut,CheckCircle2,RefreshCw} from 'lucide-react';
 import {ResponsiveContainer,AreaChart,Area,XAxis,YAxis,CartesianGrid,Tooltip,BarChart,Bar,PieChart,Pie,Cell} from 'recharts';
@@ -14,13 +14,22 @@ function ChartTip({active,payload,label}){if(!active||!payload?.length)return nu
 const load=()=>{try{return {...initial,...JSON.parse(localStorage.getItem('estateflow-v1')||'{}')}}catch{return initial}};
 const route=()=>nav.find(([n])=>n.toLowerCase().replaceAll(' ','-')===location.hash.slice(1))?.[0]||'Dashboard';
 const label=(s)=>String(s||'').replaceAll(' ','-').toLowerCase();
+const scrollPageTop=()=>{
+  // Reset both the document and any independently scrolling page container.
+  window.scrollTo(0,0);
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+  const main=document.querySelector('main');
+  if(main)main.scrollTop=0;
+};
 function App(){
  const [db,setDb]=useState(load),[page,setPage]=useState(route),[sidebar,setSidebar]=useState(false),[compact,setCompact]=useState(false),[query,setQuery]=useState(''),[filter,setFilter]=useState('All'),[modal,setModal]=useState(null),[toast,setToast]=useState(''),[notifications,setNotifications]=useState(false),[selected,setSelected]=useState('C0'),[reply,setReply]=useState(''),[inboxSource,setInboxSource]=useState('All'),[period,setPeriod]=useState('All time'),[drag,setDrag]=useState(null);
  useEffect(()=>{try{localStorage.setItem('estateflow-v1',JSON.stringify(db))}catch{setToast('Browser storage is full. Changes are kept for this session.')}},[db]);
- useEffect(()=>{const f=()=>{setPage(route());setQuery('');setFilter('All')};window.addEventListener('hashchange',f);return()=>window.removeEventListener('hashchange',f)},[]);
+ useEffect(()=>{const f=()=>{setPage(route());setQuery('');setFilter('All');scrollPageTop()};window.addEventListener('hashchange',f);return()=>window.removeEventListener('hashchange',f)},[]);
+ useLayoutEffect(()=>{scrollPageTop()},[page]);
  useEffect(()=>{if(toast){const t=setTimeout(()=>setToast(''),3500);return()=>clearTimeout(t)}},[toast]);
  useEffect(()=>{const f=e=>{if(e.key==='Escape'){setModal(null);setNotifications(false);setSidebar(false)}};window.addEventListener('keydown',f);return()=>window.removeEventListener('keydown',f)},[]);
- const go=n=>{setPage(n);location.hash=n.toLowerCase().replaceAll(' ','-');setQuery('');setFilter('All');setSidebar(false);setNotifications(false)};
+ const go=n=>{setPage(n);location.hash=n.toLowerCase().replaceAll(' ','-');setQuery('');setFilter('All');setSidebar(false);setNotifications(false);scrollPageTop()};
  const prop=id=>db.properties.find(p=>p.id===id)?.name||'—',person=id=>db.staff.find(p=>p.id===id)?.name||'Unassigned',buyer=id=>db.leads.find(p=>p.id===id)?.name||'—';
  const nameFor=(key,v)=>key==='property'?prop(v):key==='lead'?buyer(v):key==='assigned'?person(v):v;
  const bookingEffects=(d,next,previous)=>{
