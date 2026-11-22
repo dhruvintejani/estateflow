@@ -32,23 +32,56 @@ function App(){
  const available=Math.min(Number(p.units),Math.max(0,Number(p.available)+change));
  return {...p,available,status:available===0?'Sold out':p.status==='Sold out'?'Available':p.status};
  });
- const leads=d.leads.map(l=>added?.lead===l.id?{...l,stage:'Booked'}:removed?.lead===l.id&&l.stage==='Booked'&&!bookings.some(b=>b.lead===l.id&&b.status==='Confirmed')?{...l,stage:'Negotiation'}:l);
+ const leads=d.leads.map(l=>added?.lead===l.id?{...l,stage:'Booked'}:removed?.lead===l.id&&l.stage==='Booked'&&!bookings.some(b=>b.lead===l.id&&b.status==='Confirmed')&&next?.status!=='Confirmed'?{...l,stage:'Negotiation'}:l);
  return {...d,properties,leads,bookings:next?[next,...bookings]:bookings};
  };
+ const confirmedBooking=(d,leadId)=>d.bookings.find(b=>b.lead===leadId&&b.status==='Confirmed');
+ const propertyAvailable=(d,propertyId)=>{const p=d.properties.find(p=>p.id===propertyId);return p&&Number(p.available)>0&&p.status!=='Sold out'&&p.status!=='On hold'};
+ const bookLead=(d,lead)=>{
+   if(confirmedBooking(d,lead.id))return {...d,leads:d.leads.map(l=>l.id===lead.id?{...lead,stage:'Booked'}:l)};
+   if(!propertyAvailable(d,lead.property))return d;
+   const p=d.properties.find(x=>x.id===lead.property);
+   const newBooking={id:uid('B'),lead:lead.id,property:lead.property,amount:Number(lead.budget)||Number(p.price),paid:0,date:dateOffset(0),status:'Confirmed',notes:'Created from sales pipeline'};
+   const withLead={...d,leads:d.leads.some(l=>l.id===lead.id)?d.leads.map(l=>l.id===lead.id?lead:l):[lead,...d.leads]};
+   return bookingEffects(withLead,newBooking,null);
+ };
  const save=(key,item)=>{
- if(key==='bookings'&&item.status==='Confirmed'){
- const previous=db.bookings.find(b=>b.id===item.id);
- const property=db.properties.find(p=>p.id===item.property);
- if(!property||(!property.available&&!(previous?.status==='Confirmed'&&previous.property===item.property))||property.status==='On hold'){setToast('Selected property is not available for booking');return}
- }
- setDb(d=>key==='bookings'?bookingEffects(d,item,d.bookings.find(b=>b.id===item.id)):{...d,[key]:d[key].some(x=>x.id===item.id)?d[key].map(x=>x.id===item.id?item:x):[item,...d[key]]});setToast('Changes saved');setModal(null)
+   const prior=db[key].find(x=>x.id===item.id);
+   if(key==='bookings'){
+     const priorConfirmed=confirmedBooking(db,item.lead);
+     if(item.status==='Confirmed'&&(!db.properties.some(p=>p.id===item.property)||(!propertyAvailable(db,item.property)&&!(prior?.status==='Confirmed'&&prior.property===item.property)))){setToast('Selected property has no available units');return}
+     if(item.status==='Confirmed'&&priorConfirmed&&priorConfirmed.id!==item.id){setToast('This customer already has a confirmed booking');return}
+   }
+   if(key==='leads'){
+     const currentBooking=confirmedBooking(db,item.id);
+     if(currentBooking&&(item.stage!=='Booked'||item.property!==currentBooking.property)){setToast('Change or cancel the confirmed booking first');return}
+     if(item.stage==='Booked'&&!currentBooking&&!propertyAvailable(db,item.property)){setToast('Choose an available property before booking');return}
+   }
+   setDb(d=>{
+     if(key==='bookings')return bookingEffects(d,item,d.bookings.find(b=>b.id===item.id));
+     if(key==='leads'&&item.stage==='Booked')return bookLead(d,item);
+     let next={...d,[key]:d[key].some(x=>x.id===item.id)?d[key].map(x=>x.id===item.id?item:x):[item,...d[key]]};
+     if(key==='visits'&&['Scheduled','Completed'].includes(item.status))
+       next={...next,leads:next.leads.map(l=>l.id===item.lead&&['New','Contacted','Qualified'].includes(l.stage)?{...l,stage:'Site visit'}:l)};
+     if(key==='quotes'&&['Sent','Accepted'].includes(item.status))
+       next={...next,leads:next.leads.map(l=>l.id===item.lead&&!['Booked','Lost'].includes(l.stage)?{...l,stage:'Negotiation'}:l)};
+     return next;
+   });
+   setToast('Changes saved and linked records updated');setModal(null)
  };
  const remove=(key,item)=>{
- const dependencies=key==='properties'?[...db.leads,...db.visits,...db.quotes,...db.bookings].some(x=>x.property===item.id):key==='leads'?[...db.visits,...db.quotes,...db.bookings,...db.followups,...db.conversations,...db.documents].some(x=>x.lead===item.id):key==='staff'?[...db.leads,...db.visits,...db.followups].some(x=>x.assigned===item.id):false;
- if(dependencies){setToast('This record is linked to other records. Reassign or remove those first.');return}
- setDb(d=>key==='bookings'?bookingEffects(d,null,item):{...d,[key]:d[key].filter(x=>x.id!==item.id)});setModal(null);setToast('Record deleted')
+   const dependencies=key==='properties'?[...db.leads,...db.visits,...db.quotes,...db.bookings].some(x=>x.property===item.id):key==='leads'?[...db.visits,...db.quotes,...db.bookings,...db.followups,...db.conversations,...db.documents].some(x=>x.lead===item.id):key==='staff'?[...db.leads,...db.visits,...db.followups].some(x=>x.assigned===item.id):false;
+   if(dependencies){setToast('This record is linked to other records. Reassign or remove those first.');return}
+   setDb(d=>key==='bookings'?bookingEffects(d,null,item):{...d,[key]:d[key].filter(x=>x.id!==item.id)});setModal(null);setToast('Record deleted');
  };
- const updateStage=(id,stage)=>{setDb(d=>({...d,leads:d.leads.map(x=>x.id===id?{...x,stage}:x)}));setToast('Lead moved to '+stage)};
+ const updateStage=(id,stage)=>{
+   const lead=db.leads.find(l=>l.id===id);
+   if(!lead)return;
+   if(confirmedBooking(db,id)&&stage!=='Booked'){setToast('Change or cancel the confirmed booking first');return}
+   if(stage==='Booked'&&!confirmedBooking(db,id)&&!propertyAvailable(db,lead.property)){setToast('Property unavailable: cannot complete booking');return}
+   setDb(d=>stage==='Booked'?bookLead(d,d.leads.find(l=>l.id===id)):{...d,leads:d.leads.map(l=>l.id===id?{...l,stage}:l)});
+   setToast(stage==='Booked'?'Booking created and property availability updated':'Lead moved to '+stage);
+ };
  const options=(arr,key='name')=>arr.map(x=>[x.id,x[key]]);
  const schemas={
  leads:[['name','Customer name','text'],['phone','Phone','tel'],['email','Email','email'],['source','Source','select',sources],['stage','Stage','select',stages],['property','Property','select',options(db.properties)],['budget','Budget (INR)','number'],['assigned','Assigned staff','select',options(db.staff)],['date','Enquiry date','date'],['notes','Notes','textarea']],
